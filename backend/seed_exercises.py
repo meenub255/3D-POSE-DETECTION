@@ -81,8 +81,10 @@ EXERCISES = [
     }
 ]
 
+from loguru import logger
+
 async def seed_exercises():
-    print("🌱 Seeding exercises...")
+    logger.info("🌱 Seeding exercises...")
     async with AsyncSessionLocal() as session:
         for ex_data in EXERCISES:
             # Check if exercise already exists
@@ -90,15 +92,15 @@ async def seed_exercises():
                 select(Exercise).where(Exercise.name == ex_data["name"])
             )
             if result.scalar_one_or_none():
-                print(f"ℹ️ Exercise '{ex_data['name']}' already exists. Skipping.")
+                logger.info(f"ℹ️ Exercise '{ex_data['name']}' already exists. Skipping.")
                 continue
             
             new_ex = Exercise(**ex_data)
             session.add(new_ex)
-            print(f"✅ Added exercise: {ex_data['name']}")
+            logger.success(f"✅ Added exercise: {ex_data['name']}")
         
         await session.commit()
-    print("✨ Seeding complete!")
+    logger.info("✨ Seeding complete!")
 
 if __name__ == "__main__":
     asyncio.run(seed_exercises())

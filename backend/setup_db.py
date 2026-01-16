@@ -3,9 +3,11 @@ from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 import os
 from dotenv import load_dotenv
 
+from loguru import logger
+
 def setup_database():
     """Create the pose_detection database if it doesn't exist."""
-    print("🐘 Setting up PostgreSQL database...")
+    logger.info("🐘 Setting up PostgreSQL database...")
     
     # Load environment variables
     load_dotenv()
@@ -34,21 +36,18 @@ def setup_database():
         exists = cur.fetchone()
         
         if not exists:
-            print(f"🛠️ Creating database '{db_name}'...")
+            logger.info(f"🛠️ Creating database '{db_name}'...")
             cur.execute(f"CREATE DATABASE {db_name}")
-            print(f"✅ Database '{db_name}' created successfully!")
+            logger.success(f"✅ Database '{db_name}' created successfully!")
         else:
-            print(f"ℹ️ Database '{db_name}' already exists.")
+            logger.info(f"ℹ️ Database '{db_name}' already exists.")
             
         cur.close()
         conn.close()
         
     except Exception as e:
-        print(f"❌ Error setting up database: {e}")
-        print("\nPossible issues:")
-        print("1. PostgreSQL is not running.")
-        print("2. 'postgres' user or 'password' password is incorrect.")
-        print("3. psycopg2 is not installed (pip install psycopg2-binary).")
+        logger.error(f"❌ Error setting up database: {e}")
+        logger.warning("\nPossible issues:\n1. PostgreSQL is not running.\n2. 'postgres' user or 'password' password is incorrect.\n3. psycopg2 is not installed.")
 
 if __name__ == "__main__":
     setup_database()

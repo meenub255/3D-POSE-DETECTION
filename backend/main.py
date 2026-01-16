@@ -1,27 +1,31 @@
 """
 Main FastAPI application entry point
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+import time
 
 from app.core.config import settings
 from app.api.v1.router import api_router
 from app.db.session import engine
 from app.db.base import Base
+from app.core.logger import setup_logging, log as logger
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan events"""
-    # Startup
-    print("🚀 Starting 3D Pose Detection System...")
+    # Startup logging setup
+    setup_logging()
+    logger.info("🚀 Starting 3D Pose Detection System...")
+    
     # Create database tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield
     # Shutdown
-    print("👋 Shutting down...")
+    logger.info("👋 Shutting down...")
 
 
 app = FastAPI(
@@ -30,6 +34,19 @@ app = FastAPI(
     description="3D Pose Detection & Posture Analysis API",
     lifespan=lifespan
 )
+
+# Request logging middleware
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = (time.time() - start_time) * 1000
+    
+    logger.info(
+        f"Method: {request.method} | Path: {request.url.path} | "
+        f"Status: {response.status_code} | Duration: {process_time:.2f}ms"
+    )
+    return response
 
 # CORS middleware
 app.add_middleware(

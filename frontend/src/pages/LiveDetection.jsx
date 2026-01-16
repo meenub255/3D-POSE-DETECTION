@@ -16,6 +16,9 @@ export default function LiveDetection() {
     const [analyzing, setAnalyzing] = useState(false)
     const [error, setError] = useState(null)
     const [fps, setFps] = useState(0)
+    const [targetFps, setTargetFps] = useState(10) // Default target FPS
+    const [exerciseMode, setExerciseMode] = useState('free') // free, squat, pushup, plank
+    const [feedback, setFeedback] = useState(null) // { message, is_correct, metrics }
 
     // Capture and send frame loop
     useEffect(() => {
@@ -34,12 +37,20 @@ export default function LiveDetection() {
                     const formData = new FormData()
                     formData.append('file', blob, 'frame.jpg')
 
-                    const res = await api.post('/pose/detect', formData, {
+                    const res = await api.post(`/pose/detect?analysis_type=${exerciseMode !== 'free' ? exerciseMode : ''}`, formData, {
                         headers: { 'Content-Type': 'multipart/form-data' }
                     })
 
                     if (res.data && res.data.landmarks_3d) {
                         setLandmarks(res.data.landmarks_3d)
+
+                        // Handle Exercise Feedback
+                        if (res.data.exercise_analysis) {
+                            setFeedback(res.data.exercise_analysis)
+                        } else {
+                            setFeedback(null)
+                        }
+
                         const now = performance.now()
                         setFps(Math.round(1000 / (now - lastTime)))
                         lastTime = now
@@ -52,7 +63,7 @@ export default function LiveDetection() {
             if (isRunning) {
                 setTimeout(() => {
                     animationFrameId = requestAnimationFrame(processFrame)
-                }, 100)
+                }, 1000 / targetFps)
             }
         }
 
@@ -111,12 +122,28 @@ export default function LiveDetection() {
 
                 <div className="flex flex-wrap items-center gap-4">
                     {isRunning && (
-                        <div className="px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-2">
-                            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                            <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">
-                                {fps} FPS ACTIVE
-                            </span>
-                        </div>
+                        <>
+                            <div className="px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-2">
+                                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                                <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">
+                                    {fps} FPS ACTIVE
+                                </span>
+                            </div>
+
+                            {/* FPS Control Slider */}
+                            <div className="flex items-center gap-2 bg-slate-800/50 px-4 py-2 rounded-2xl border border-slate-700">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase">Target: {targetFps}</span>
+                                <input
+                                    type="range"
+                                    min="1"
+                                    max="30"
+                                    step="1"
+                                    value={targetFps}
+                                    onChange={(e) => setTargetFps(parseInt(e.target.value))}
+                                    className="w-24 accent-sky-500 h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer"
+                                />
+                            </div>
+                        </>
                     )}
 
                     <button
@@ -154,12 +181,50 @@ export default function LiveDetection() {
                 </div>
             </div>
 
-            {error && (
-                <div className="mb-8 bg-rose-500/10 border border-rose-500/20 text-rose-400 px-6 py-4 rounded-3xl flex items-center gap-3 animate-in slide-in-from-top-4">
-                    <AlertCircle className="w-5 h-5" />
-                    <span className="text-sm font-bold uppercase tracking-tight">System Error: {error}</span>
-                </div>
-            )}
+
+            {/* Exercise Mode Selector */}
+            <div className="flex justify-center gap-4 mb-8">
+                {['free', 'squat', 'pushup', 'plank', 'ergonomics'].map((mode) => (
+                    <button
+                        key={mode}
+                        onClick={() => setExerciseMode(mode)}
+                        className={`px-6 py-2 rounded-xl font-bold uppercase tracking-wider text-sm transition-all ${exerciseMode === mode
+                            ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/25 scale-105'
+                            : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                            }`}
+                    >
+                        {mode} Mode
+                    </button>
+                ))}
+            </div>
+
+            {/* Feedback Overlay */}
+            {
+                feedback && feedback.feedback.length > 0 && (
+                    <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+                        <div className={`px-8 py-4 rounded-2xl shadow-2xl backdrop-blur-xl border-4 ${feedback.is_correct ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-rose-500/20 border-rose-500 text-rose-400'
+                            }`}>
+                            <h2 className="text-3xl font-black uppercase tracking-widest text-center stroke-text">
+                                {feedback.feedback[0]}
+                            </h2>
+                            {feedback.metrics && feedback.exercise === 'squat' && (
+                                <div className="text-center mt-2 text-white font-bold">
+                                    Depth Score: {feedback.metrics.depth_score.toFixed(2)}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )
+            }
+
+            {
+                error && (
+                    <div className="mb-8 bg-rose-500/10 border border-rose-500/20 text-rose-400 px-6 py-4 rounded-3xl flex items-center gap-3 animate-in slide-in-from-top-4">
+                        <AlertCircle className="w-5 h-5" />
+                        <span className="text-sm font-bold uppercase tracking-tight">System Error: {error}</span>
+                    </div>
+                )
+            }
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-[650px]">
                 {/* Webcam Preview */}
@@ -274,6 +339,6 @@ export default function LiveDetection() {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     )
 }
